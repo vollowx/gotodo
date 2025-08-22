@@ -237,14 +237,13 @@ func main() {
 				} else {
 					fmt.Printf("[%d] TODO\n", index)
 				}
-				todo.Print()
 			} else {
 				if todo.Done {
 					continue
 				}
 				fmt.Printf("[%d]\n", index)
-				todo.Print()
 			}
+			todo.Print()
 		}
 	case args.Delete != nil:
 		new_todos, removed := deleteBySummary(todos, args.Delete.Summary)
