@@ -1,7 +1,7 @@
 # gotodo
 
 ```
-gotodo --help
+$ gotodo --help
 Usage: gotodo <command> [<args>]
 
 Options:
@@ -13,3 +13,5 @@ Commands:
   set                    update properties of todo(s) by summary
   list                   list todos
 ```
+
+By default, your data is stored at `~/.gotodo.json`.
