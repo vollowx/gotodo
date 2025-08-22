@@ -18,7 +18,7 @@ import (
 var homePath = os.Getenv("HOME")
 var dataFile = fmt.Sprintf("%s/.gotodo.json", homePath)
 
-const shortForm = "2006-01-02"
+const dateYYYYMMDD = "2006-01-02"
 
 type Todo struct {
 	Priority int8
@@ -39,9 +39,21 @@ type TodoDiff struct {
 }
 
 func (x Todo) Print() {
-	fmt.Printf("@%d        %s\n", x.Priority, x.Summary)
-	fmt.Printf("details   %s\n", x.Details)
-	fmt.Printf("deadline  %s\n", x.Deadline.Format(shortForm))
+	fmt.Printf("[%d/%s] %s\n", x.Priority, x.Deadline.Format(dateYYYYMMDD), x.Summary)
+}
+
+func (x Todo) PrintAll() {
+	var done string
+	if x.Done {
+		done = "done"
+	} else {
+		done = "todo"
+	}
+	fmt.Printf("[%s]     %s\n", done, x.Summary)
+	fmt.Printf("details    %s\n", x.Details)
+	fmt.Printf("added at   %s\n", x.AddedAt.Format(dateYYYYMMDD))
+	fmt.Printf("deadline   %s\n", x.Deadline.Format(dateYYYYMMDD))
+	fmt.Printf("priority   %d\n", x.Priority)
 }
 
 func newTodo() (Todo, error) {
@@ -66,10 +78,10 @@ func newTodo() (Todo, error) {
 	if _deadline, err = readLine("deadline: "); err != nil {
 		return Todo{}, err
 	}
-	now := time.Now()
-	deadline, perr := time.Parse(shortForm, _deadline)
+	now := time.Now().Round(time.Hour * 24)
+	deadline, perr := time.Parse(dateYYYYMMDD, _deadline)
 	if perr != nil {
-		return Todo{}, fmt.Errorf("invalid deadline format, expected %s", shortForm)
+		return Todo{}, fmt.Errorf("invalid deadline format, expected %s", dateYYYYMMDD)
 	}
 	if deadline.Compare(now) == -1 {
 		return Todo{}, errors.New("deadline is before today")
@@ -230,20 +242,14 @@ func main() {
 			dump(todos)
 		}
 	case args.List != nil:
-		for index, todo := range todos {
+		for _, todo := range todos {
 			if args.List.All {
-				if todo.Done {
-					fmt.Printf("[%d] DONE\n", index)
-				} else {
-					fmt.Printf("[%d] TODO\n", index)
-				}
+				todo.PrintAll()
+			} else if todo.Done {
+				continue
 			} else {
-				if todo.Done {
-					continue
-				}
-				fmt.Printf("[%d]\n", index)
+				todo.Print()
 			}
-			todo.Print()
 		}
 	case args.Delete != nil:
 		new_todos, removed := deleteBySummary(todos, args.Delete.Summary)
@@ -274,9 +280,9 @@ func main() {
 		}
 
 		if args.Set.Deadline != nil {
-			dl, err := time.Parse(shortForm, *args.Set.Deadline)
+			dl, err := time.Parse(dateYYYYMMDD, *args.Set.Deadline)
 			if err != nil {
-				log.Printf("set: invalid deadline format, expected %s\n", shortForm)
+				log.Printf("set: invalid deadline format, expected %s\n", dateYYYYMMDD)
 				break
 			}
 			now := time.Now()
