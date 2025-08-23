@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>GoTodo</title>
+    <meta name="color-scheme" content="dark light" />
+    <style>
+      @view-transition {
+        navigation: auto;
+      }
+      ::view-transition-old(root),
+      ::view-transition-new(root) {
+        animation: fade 0.3s ease both;
+      }
+      @keyframes fade {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      * {
+        font-family: monospace;
+      }
+      a,
+      button {
+        all: initial;
+        display: inline-flex;
+        background-color: #333333;
+        font-family: monospace;
+      }
+      a:hover,
+      button:hover {
+        background-color: #454545;
+        cursor: pointer;
+      }
+      a::before,
+      button::before {
+        content: "[";
+      }
+      a::after,
+      button::after {
+        content: "]";
+      }
+      html {
+        min-height: 100%;
+        display: flex;
+      }
+      body {
+        margin: auto;
+        padding: 48px 32px;
+        max-width: 600px;
+        width: 100%;
+      }
+      ul {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+      }
+      li {
+        display: flex;
+        gap: 8px;
+      }
+      .done {
+        font-weight: bold;
+      }
+      .deadline {
+        color: #bbbbbb;
+      }
+      .summary {
+        flex: 1;
+      }
+      label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 style="view-transition-name: headline">GoTodo</h1>
+
+    {{if .Flash}}
+    <p><strong>{{.Flash}}</strong></p>
+    {{end}} {{if .ShowAll}}
+    <a href="/" style="view-transition-name: toggle-all">show pending</a>
+    {{else}}
+    <a href="/?all=1" style="view-transition-name: toggle-all">show all</a>
+    {{end}}
+
+    <ul>
+      {{range .Todos}} {{if or $.ShowAll (not .Done)}}
+      <li style="view-transition-name: {{cssValueEsc .Summary}}">
+        <span class="done">[{{if .Done}}done{{else}}todo{{end}}]</span>
+        <span class="deadline">[{{.Priority}}/{{fmtDate .Deadline}}]</span>
+        <span class="summary">{{htmlEsc .Summary}}</span>
+        -
+        <a href="/edit/{{pathEsc .Summary}}">edit</a> -
+        <a href="/set/{{pathEsc .Summary}}?done=1">toggle done</a>
+        <form
+          style="display: inline"
+          method="POST"
+          action="/delete/{{pathEsc .Summary}}"
+        >
+          <button type="submit">delete</button>
+        </form>
+      </li>
+      {{end}} {{end}}
+    </ul>
+
+    <form method="POST" action="/add" style="view-transition-name: form-add">
+      <fieldset>
+        <legend>Add New Todo</legend>
+        <label>Summary <input type="text" name="summary" required /></label>
+        <label>
+          Details
+          <textarea name="details" rows="3" cols="40"></textarea>
+        </label>
+        <label>
+          Deadline
+          <input type="date" name="deadline" value="{{.Today}}" required
+        /></label>
+        <label>
+          Priority (1-5)
+          <input type="number" name="priority" min="1" max="5" value="1"
+        /></label>
+        <button type="submit">add</button>
+      </fieldset>
+    </form>
+  </body>
+</html>

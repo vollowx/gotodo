@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Editing: {{htmlEsc .Match}}</title>
+    <meta name="color-scheme" content="dark light" />
+    <style>
+      @view-transition {
+        navigation: auto;
+      }
+      ::view-transition-old(root),
+      ::view-transition-new(root) {
+        animation: fade 0.3s ease both;
+      }
+      @keyframes fade {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      * {
+        font-family: monospace;
+      }
+      a,
+      button {
+        all: initial;
+        display: inline-flex;
+        background-color: #333333;
+        font-family: monospace;
+      }
+      a:hover,
+      button:hover {
+        background-color: #454545;
+        cursor: pointer;
+      }
+      a::before,
+      button::before {
+        content: "[";
+      }
+      a::after,
+      button::after {
+        content: "]";
+      }
+      html {
+        min-height: 100%;
+        display: flex;
+      }
+      body {
+        margin: auto;
+        padding: 48px 32px;
+        max-width: 600px;
+        width: 100%;
+      }
+      label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Editing: {{htmlEsc .Match}}</h1>
+    <p>Editing will apply to all todos with this summary.</p>
+
+    <form method="GET" action="/set/{{pathEsc .Match}}">
+      <fieldset>
+        <legend>{{htmlEsc .Match}}</legend>
+        <label>
+          Summary
+          <input
+            type="text"
+            name="summary"
+            value="{{htmlEsc .Example.Summary}}"
+        /></label>
+        <label>
+          Details
+          <textarea name="details" rows="4" cols="60">
+{{htmlEsc .Example.Details}}</textarea
+          >
+        </label>
+        <label>
+          Deadline
+          <input
+            type="date"
+            name="deadline"
+            value="{{fmtDate .Example.Deadline}}"
+        /></label>
+        <label>
+          Priority (1-5)
+          <input
+            type="number"
+            name="priority"
+            min="1"
+            max="5"
+            value="{{.Example.Priority}}"
+        /></label>
+        <button type="submit">save</button>
+        <a href="/">cancel</a>
+      </fieldset>
+    </form>
+  </body>
+</html>
