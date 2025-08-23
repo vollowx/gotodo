@@ -28,21 +28,25 @@
         all: initial;
         display: inline-flex;
         height: min-content;
-        background-color: #333333;
+        background-color: #272727;
         font-family: monospace;
       }
       a:hover,
-      button:hover {
+      a:focus,
+      button:hover,
+      button:focus {
         background-color: #454545;
         cursor: pointer;
       }
       a::before,
       button::before {
         content: "[";
+        color: #aaaaaa;
       }
       a::after,
       button::after {
         content: "]";
+        color: #aaaaaa;
       }
       html {
         min-height: 100%;
@@ -67,14 +71,18 @@
         gap: 8px;
       }
       .todo {
-        font-weight: bold;
+        opacity: 0.4;
+      }
+      ul:has(.done) .todo {
+        opacity: 0.8;
       }
       .done,
       .deadline {
-        color: #bbbbbb;
+        opacity: calc(0.4 * var(--priority) / 5 + 0.3);
       }
       .summary {
         flex: 1;
+        opacity: calc(0.6 * var(--priority) / 5 + 0.4);
       }
       label {
         display: flex;
@@ -96,17 +104,18 @@
 
     <ul>
       {{range .Todos}} {{if or $.ShowAll (not .Done)}}
-      <li style="view-transition-name: {{hashCssValue .Summary}}">
-        <span class="{{if .Done}}done{{else}}todo{{end}}"
-          >[{{if .Done}}done{{else}}todo{{end}}]</span
-        >
+      <li
+        style="view-transition-name: {{hashCssValue .Summary}}; --priority: {{.Priority}}"
+      >
+        <form method="POST" action="/api/set/{{pathEsc .Summary}}?done=1">
+          <button type="submit" class="{{if .Done}}done{{else}}todo{{end}}">
+            {{if .Done}}x{{else}}&nbsp{{end}}
+          </button>
+        </form>
         <span class="deadline">[{{.Priority}}/{{fmtDate .Deadline}}]</span>
         <span class="summary">{{htmlEsc .Summary}}</span>
 
-        <a href="/edit/{{pathEsc .Summary}}">edit</a> -
-        <form method="POST" action="/api/set/{{pathEsc .Summary}}?done=1">
-          <button type="submit">done</button>
-        </form>
+        <a href="/edit/{{pathEsc .Summary}}">edit</a>
         <form method="POST" action="/api/delete/{{pathEsc .Summary}}">
           <button type="submit" aria-label="delete">x</button>
         </form>
@@ -135,7 +144,7 @@
             max="5"
             value="1"
         /></label>
-        <button type="submit">add</button>
+        <button type="submit">del</button>
       </form>
       <hr />
     </section>
