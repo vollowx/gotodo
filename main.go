@@ -64,22 +64,30 @@ func (x Todo) PrintAll() {
 	fmt.Printf("priority   %d\n", x.Priority)
 }
 
-func parsePriority(s string) (*int8, error) {
+// Validation functions
+func isValidPriority(p int8) bool {
+	return p >= 1 && p <= 5
+}
+
+func isValidDeadline(t time.Time) bool {
+	now := time.Now().Round(time.Hour * 24)
+	return t.Compare(now) >= 0
+}
+
+// Conversion functions (parsing only, no validation)
+func stringToPriority(s string) (*int8, error) {
 	if s == "" {
 		return nil, nil
 	}
-	p, err := strconv.Atoi(s)
+	p, err := strconv.ParseInt(s, 10, 8)
 	if err != nil {
-		return nil, errors.New("invalid priority")
+		return nil, errors.New("invalid priority format")
 	}
-	if p < 1 || p > 5 {
-		return nil, errors.New("priority out of range (1-5)")
-	}
-	pp := int8(p)
-	return &pp, nil
+	priority := int8(p)
+	return &priority, nil
 }
 
-func parseDeadline(s string) (*time.Time, error) {
+func stringToDeadline(s string) (*time.Time, error) {
 	if s == "" {
 		return nil, nil
 	}
@@ -87,65 +95,12 @@ func parseDeadline(s string) (*time.Time, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid deadline format, expected %s", dateYYYYMMDD)
 	}
-	now := time.Now().Round(time.Hour * 24)
-	if dl.Compare(now) == -1 {
-		return nil, errors.New("deadline is before today")
-	}
 	return &dl, nil
 }
 
-func createTodo(summary, details, deadlineStr, priorityStr string) (Todo, error) {
-	if strings.TrimSpace(summary) == "" {
-		return Todo{}, errors.New("summary is required")
-	}
-
-	deadline, err := parseDeadline(deadlineStr)
-	if err != nil {
-		return Todo{}, err
-	}
-	if deadline == nil {
-		return Todo{}, errors.New("deadline is required")
-	}
-
-	priority, err := parsePriority(priorityStr)
-	if err != nil {
-		return Todo{}, err
-	}
-	p := int8(1) // default
-	if priority != nil {
-		p = *priority
-	}
-
-	return Todo{
-		Priority: p,
-		Deadline: *deadline,
-		AddedAt:  time.Now(),
-		DoneAt:   time.Time{},
-		Done:     false,
-		Summary:  strings.TrimSpace(summary),
-		Details:  details,
-	}, nil
-}
-
-func patchTodos(todos []Todo, match string, patch TodoPatch) (updated int, err error) {
-	if patch.Priority != nil {
-		pStr := strconv.Itoa(int(*patch.Priority))
-		if _, err := parsePriority(pStr); err != nil {
-			return 0, err
-		}
-	}
-
-	if patch.Deadline != nil {
-		dlStr := patch.Deadline.Format(dateYYYYMMDD)
-		if _, err := parseDeadline(dlStr); err != nil {
-			return 0, err
-		}
-	}
-
-	if patch.Summary != nil && strings.TrimSpace(*patch.Summary) == "" {
-		return 0, errors.New("summary cannot be empty")
-	}
-
+// Pure action functions - no validation, only data manipulation
+func patchTodos(todos []Todo, match string, patch TodoPatch) int {
+	updated := 0
 	now := time.Now()
 	for i := range todos {
 		if todos[i].Summary != match {
@@ -176,7 +131,7 @@ func patchTodos(todos []Todo, match string, patch TodoPatch) (updated int, err e
 		}
 		updated++
 	}
-	return updated, nil
+	return updated
 }
 
 func deleteTodos(todos []Todo, summary string) ([]Todo, int) {
@@ -238,6 +193,107 @@ func load(filename string) ([]Todo, error) {
 	return todos, nil
 }
 
+func addTodoOperation(todos *[]Todo, mu *sync.Mutex, summary, details, deadlineStr, priorityStr string) (string, error) {
+	if strings.TrimSpace(summary) == "" {
+		return "", errors.New("summary is required")
+	}
+
+	deadline, err := stringToDeadline(deadlineStr)
+	if err != nil {
+		return "", err
+	}
+	dl := time.Now().Round(time.Hour * 24)
+	if deadline != nil {
+		if !isValidDeadline(*deadline) {
+			return "", errors.New("deadline is before today")
+		}
+		dl = *deadline
+	}
+
+	priority, err := stringToPriority(priorityStr)
+	if err != nil {
+		return "", err
+	}
+	p := int8(1)
+	if priority != nil {
+		if !isValidPriority(*priority) {
+			return "", errors.New("priority out of range (1-5)")
+		}
+		p = *priority
+	}
+
+	newTodo := Todo{
+		Priority: p,
+		Deadline: dl,
+		AddedAt:  time.Now(),
+		DoneAt:   time.Time{},
+		Done:     false,
+		Summary:  strings.TrimSpace(summary),
+		Details:  details,
+	}
+
+	mu.Lock()
+	*todos = append(*todos, newTodo)
+	dump(*todos)
+	mu.Unlock()
+
+	return "todo added", nil
+}
+
+func deleteTodoOperation(todos *[]Todo, mu *sync.Mutex, summary string) string {
+	mu.Lock()
+	newTodos, removed := deleteTodos(*todos, summary)
+	if removed > 0 {
+		*todos = newTodos
+		dump(*todos)
+	}
+	mu.Unlock()
+
+	if removed == 0 {
+		return fmt.Sprintf("no todo found with summary: %q", summary)
+	}
+	return fmt.Sprintf("deleted %d todo(s) with summary %q", removed, summary)
+}
+
+func setTodoOperation(todos *[]Todo, mu *sync.Mutex, match string, patch TodoPatch) (string, error) {
+	if patch.Priority != nil {
+		if !isValidPriority(*patch.Priority) {
+			return "", errors.New("priority out of range (1-5)")
+		}
+	}
+
+	if patch.Deadline != nil {
+		if !isValidDeadline(*patch.Deadline) {
+			return "", errors.New("deadline is before today")
+		}
+	}
+
+	if patch.Summary != nil && strings.TrimSpace(*patch.Summary) == "" {
+		return "", errors.New("summary cannot be empty")
+	}
+
+	mu.Lock()
+	updated := patchTodos(*todos, match, patch)
+	if updated > 0 {
+		dump(*todos)
+	}
+	mu.Unlock()
+
+	if updated == 0 {
+		return fmt.Sprintf("no todo found with summary: %q", match), nil
+	}
+	return fmt.Sprintf("updated %d todo(s) with summary %q", updated, match), nil
+}
+
+func readLine(reader *bufio.Reader, prompt string) (string, error) {
+	fmt.Print(prompt)
+	s, err := reader.ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return "", err
+	}
+	return strings.TrimSpace(s), nil
+}
+
 // Web interface
 
 func isTrue(s string) bool {
@@ -264,13 +320,13 @@ func paramsToPatch(params url.Values) (TodoPatch, error) {
 		patch.Details = &d
 	}
 
-	if p, err := parsePriority(params.Get("priority")); err != nil {
+	if p, err := stringToPriority(params.Get("priority")); err != nil {
 		return TodoPatch{}, err
 	} else if p != nil {
 		patch.Priority = p
 	}
 
-	if dl, err := parseDeadline(params.Get("deadline")); err != nil {
+	if dl, err := stringToDeadline(params.Get("deadline")); err != nil {
 		return TodoPatch{}, err
 	} else if dl != nil {
 		patch.Deadline = dl
@@ -279,7 +335,7 @@ func paramsToPatch(params url.Values) (TodoPatch, error) {
 	return patch, nil
 }
 
-func cssValueEscape(s string) string {
+func bashCssValue(s string) string {
 	if s == "" {
 		return "css-empty"
 	}
@@ -306,7 +362,7 @@ func loadTemplates() (*template.Template, error) {
 		"pathEsc":     url.PathEscape,
 		"qEsc":        url.QueryEscape,
 		"htmlEsc":     html.EscapeString,
-		"cssValueEsc": cssValueEscape,
+		"hashCssValue": bashCssValue,
 	}
 	t := template.New("base").Funcs(funcs)
 	files := []string{"index.html", "edit.html"}
@@ -315,41 +371,6 @@ func loadTemplates() (*template.Template, error) {
 		paths = append(paths, filepath.Join("templates", f))
 	}
 	return t.ParseFiles(paths...)
-}
-
-func cliAddTodo() (Todo, error) {
-	reader := bufio.NewReader(os.Stdin)
-
-	readLine := func(prompt string) (string, error) {
-		fmt.Print(prompt)
-		s, err := reader.ReadString('\n')
-		if err != nil && !errors.Is(err, io.EOF) {
-			return "", err
-		}
-		return strings.TrimSpace(s), nil
-	}
-
-	deadline, err := readLine("deadline: ")
-	if err != nil {
-		return Todo{}, err
-	}
-
-	summary, err := readLine("summary: ")
-	if err != nil {
-		return Todo{}, err
-	}
-
-	details, err := readLine("details: ")
-	if err != nil {
-		return Todo{}, err
-	}
-
-	priority, err := readLine("priority (1-5, default 1): ")
-	if err != nil {
-		return Todo{}, err
-	}
-
-	return createTodo(summary, details, deadline, priority)
 }
 
 func main() {
@@ -447,9 +468,9 @@ func main() {
 			}
 		})
 
-		// {{{ APIs
+		// APIs using abstracted operations
 
-		http.HandleFunc("/add", func(w http.ResponseWriter, r *http.Request) {
+		http.HandleFunc("/api/add", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
 				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 				return
@@ -459,7 +480,7 @@ func main() {
 				return
 			}
 
-			newTodo, err := createTodo(
+			message, err := addTodoOperation(&todos, &mu,
 				r.Form.Get("summary"),
 				r.Form.Get("details"),
 				r.Form.Get("deadline"),
@@ -470,39 +491,32 @@ func main() {
 				return
 			}
 
-			mu.Lock()
-			todos = append(todos, newTodo)
-			dump(todos)
-			mu.Unlock()
-
-			http.Redirect(w, r, "/?flash="+url.QueryEscape("todo added"), http.StatusSeeOther)
+			http.Redirect(w, r, "/?flash="+url.QueryEscape(message), http.StatusSeeOther)
 		})
 
-		http.HandleFunc("/delete/", func(w http.ResponseWriter, r *http.Request) {
+		http.HandleFunc("/api/delete/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
 				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 				return
 			}
-			raw := strings.TrimPrefix(r.URL.Path, "/delete/")
+			raw := strings.TrimPrefix(r.URL.Path, "/api/delete/")
 			match, err := url.PathUnescape(raw)
 			if err != nil {
 				http.Error(w, "invalid summary", http.StatusBadRequest)
 				return
 			}
-			mu.Lock()
-			newTodos, removed := deleteTodos(todos, match)
-			if removed > 0 {
-				todos = newTodos
-				dump(todos)
-			}
-			mu.Unlock()
 
-			flash := url.QueryEscape(fmt.Sprintf("deleted %d todo(s) with summary %q", removed, match))
-			http.Redirect(w, r, "/?flash="+flash, http.StatusSeeOther)
+			message := deleteTodoOperation(&todos, &mu, match)
+
+			http.Redirect(w, r, "/?flash="+url.QueryEscape(message), http.StatusSeeOther)
 		})
 
-		http.HandleFunc("/set/", func(w http.ResponseWriter, r *http.Request) {
-			raw := strings.TrimPrefix(r.URL.Path, "/set/")
+		http.HandleFunc("/api/set/", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			raw := strings.TrimPrefix(r.URL.Path, "/api/set/")
 			match, err := url.PathUnescape(raw)
 			if err != nil {
 				http.Error(w, "invalid summary", http.StatusBadRequest)
@@ -517,35 +531,50 @@ func main() {
 				return
 			}
 
-			mu.Lock()
-			updated, err := patchTodos(todos, match, patch)
+			message, err := setTodoOperation(&todos, &mu, match, patch)
 			if err != nil {
-				mu.Unlock()
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			if updated > 0 {
-				dump(todos)
-			}
-			mu.Unlock()
 
-			flash := url.QueryEscape(fmt.Sprintf("updated %d todo(s) with summary %q", updated, match))
-			http.Redirect(w, r, "/?flash="+flash, http.StatusSeeOther)
+			http.Redirect(w, r, "/?flash="+url.QueryEscape(message), http.StatusSeeOther)
 		})
-
-		// }}}
 
 		log.Println("serving on http://localhost:8080")
 		log.Fatal(http.ListenAndServe(":8080", nil))
 
 	case args.Add != nil:
-		todo, err := cliAddTodo()
+		reader := bufio.NewReader(os.Stdin)
+
+		deadline, err := readLine(reader, "deadline: ")
+		if err != nil {
+			log.Println("add:", err)
+			break
+		}
+
+		summary, err := readLine(reader, "summary: ")
+		if err != nil {
+			log.Println("add:", err)
+			break
+		}
+
+		details, err := readLine(reader, "details: ")
+		if err != nil {
+			log.Println("add:", err)
+			break
+		}
+
+		priority, err := readLine(reader, "priority (1-5, default 1): ")
+		if err != nil {
+			log.Println("add:", err)
+			break
+		}
+
+		message, err := addTodoOperation(&todos, &mu, summary, details, deadline, priority)
 		if err != nil {
 			log.Println("add:", err)
 		} else {
-			todos = append(todos, todo)
-			fmt.Println("todo added")
-			dump(todos)
+			fmt.Println(message)
 		}
 
 	case args.List != nil:
@@ -560,13 +589,8 @@ func main() {
 		}
 
 	case args.Delete != nil:
-		new_todos, removed := deleteTodos(todos, args.Delete.Summary)
-		if removed == 0 {
-			fmt.Printf("no todo found with summary: %q\n", args.Delete.Summary)
-		} else {
-			fmt.Printf("deleted %d todo(s) with summary %q\n", removed, args.Delete.Summary)
-			dump(new_todos)
-		}
+		message := deleteTodoOperation(&todos, &mu, args.Delete.Summary)
+		fmt.Println(message)
 
 	case args.Set != nil:
 		if args.Set.Done == nil && args.Set.Summary == nil && args.Set.Details == nil && args.Set.Priority == nil && args.Set.Deadline == nil {
@@ -582,7 +606,7 @@ func main() {
 		}
 
 		if args.Set.Deadline != nil {
-			dl, err := parseDeadline(*args.Set.Deadline)
+			dl, err := stringToDeadline(*args.Set.Deadline)
 			if err != nil {
 				log.Println("set:", err)
 				break
@@ -590,18 +614,11 @@ func main() {
 			patch.Deadline = dl
 		}
 
-		updated, err := patchTodos(todos, args.Set.Match, patch)
+		message, err := setTodoOperation(&todos, &mu, args.Set.Match, patch)
 		if err != nil {
 			log.Println("set:", err)
-			break
-		}
-		if updated == 0 {
-			fmt.Printf("no todo found with summary: %q\n", args.Set.Match)
 		} else {
-			fmt.Printf("updated %d todo(s) with summary %q\n", updated, args.Set.Match)
-			dump(todos)
+			fmt.Println(message)
 		}
 	}
 }
-
-// vim:ts=4:sw=4:sts=4

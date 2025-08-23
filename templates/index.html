@@ -27,6 +27,7 @@
       button {
         all: initial;
         display: inline-flex;
+        height: min-content;
         background-color: #333333;
         font-family: monospace;
       }
@@ -53,6 +54,9 @@
         max-width: 600px;
         width: 100%;
       }
+      hr {
+        border-color: #aaaaaa;
+      }
       ul {
         display: flex;
         flex-direction: column;
@@ -62,9 +66,10 @@
         display: flex;
         gap: 8px;
       }
-      .done {
+      .todo {
         font-weight: bold;
       }
+      .done,
       .deadline {
         color: #bbbbbb;
       }
@@ -75,13 +80,12 @@
         display: flex;
         gap: 8px;
         align-items: center;
+        justify-content: space-between;
         margin-bottom: 8px;
       }
     </style>
   </head>
   <body>
-    <h1 style="view-transition-name: headline">GoTodo</h1>
-
     {{if .Flash}}
     <p><strong>{{.Flash}}</strong></p>
     {{end}} {{if .ShowAll}}
@@ -92,42 +96,48 @@
 
     <ul>
       {{range .Todos}} {{if or $.ShowAll (not .Done)}}
-      <li style="view-transition-name: {{cssValueEsc .Summary}}">
-        <span class="done">[{{if .Done}}done{{else}}todo{{end}}]</span>
+      <li style="view-transition-name: {{hashCssValue .Summary}}">
+        <span class="{{if .Done}}done{{else}}todo{{end}}"
+          >[{{if .Done}}done{{else}}todo{{end}}]</span
+        >
         <span class="deadline">[{{.Priority}}/{{fmtDate .Deadline}}]</span>
         <span class="summary">{{htmlEsc .Summary}}</span>
-        -
+
         <a href="/edit/{{pathEsc .Summary}}">edit</a> -
-        <a href="/set/{{pathEsc .Summary}}?done=1">toggle done</a>
-        <form
-          style="display: inline"
-          method="POST"
-          action="/delete/{{pathEsc .Summary}}"
-        >
-          <button type="submit">delete</button>
+        <form method="POST" action="/api/set/{{pathEsc .Summary}}?done=1">
+          <button type="submit">done</button>
+        </form>
+        <form method="POST" action="/api/delete/{{pathEsc .Summary}}">
+          <button type="submit" aria-label="delete">x</button>
         </form>
       </li>
       {{end}} {{end}}
     </ul>
 
-    <form method="POST" action="/add" style="view-transition-name: form-add">
-      <fieldset>
-        <legend>Add New Todo</legend>
-        <label>Summary <input type="text" name="summary" required /></label>
-        <label>
-          Details
-          <textarea name="details" rows="3" cols="40"></textarea>
-        </label>
-        <label>
-          Deadline
-          <input type="date" name="deadline" value="{{.Today}}" required
+    <section style="view-transition-name: form-add">
+      <hr />
+      <form method="POST" action="/api/add">
+        <strong>new todo</strong>
+        <label>summary<input type="text" name="summary" required /></label>
+        <label>details<input type="text" name="details" /></label>
+        <label
+          >deadline<input
+            type="date"
+            name="deadline"
+            value="{{.Today}}"
+            required
         /></label>
-        <label>
-          Priority (1-5)
-          <input type="number" name="priority" min="1" max="5" value="1"
+        <label
+          >priority (1-5)<input
+            type="number"
+            name="priority"
+            min="1"
+            max="5"
+            value="1"
         /></label>
         <button type="submit">add</button>
-      </fieldset>
-    </form>
+      </form>
+      <hr />
+    </section>
   </body>
 </html>

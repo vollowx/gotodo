@@ -27,6 +27,7 @@
       button {
         all: initial;
         display: inline-flex;
+        height: min-content;
         background-color: #333333;
         font-family: monospace;
       }
@@ -53,43 +54,46 @@
         max-width: 600px;
         width: 100%;
       }
+      hr {
+        border-color: #aaaaaa;
+      }
       label {
         display: flex;
         gap: 8px;
         align-items: center;
+        justify-content: space-between;
         margin-bottom: 8px;
       }
     </style>
   </head>
   <body>
-    <h1>Editing: {{htmlEsc .Match}}</h1>
-    <p>Editing will apply to all todos with this summary.</p>
-
-    <form method="GET" action="/set/{{pathEsc .Match}}">
-      <fieldset>
-        <legend>{{htmlEsc .Match}}</legend>
+    <section>
+      <hr />
+      <form method="POST" action="/api/set/{{pathEsc .Match}}">
+        <strong>editing {{htmlEsc .Match}}</strong>
         <label>
-          Summary
+          summary
           <input
             type="text"
             name="summary"
             value="{{htmlEsc .Example.Summary}}"
         /></label>
         <label>
-          Details
-          <textarea name="details" rows="4" cols="60">
-{{htmlEsc .Example.Details}}</textarea
-          >
-        </label>
+          setails
+          <input
+            type="text"
+            name="details"
+            value="{{htmlEsc .Example.Details}}"
+        /></label>
         <label>
-          Deadline
+          deadline
           <input
             type="date"
             name="deadline"
             value="{{fmtDate .Example.Deadline}}"
         /></label>
         <label>
-          Priority (1-5)
+          priority (1-5)
           <input
             type="number"
             name="priority"
@@ -99,7 +103,8 @@
         /></label>
         <button type="submit">save</button>
         <a href="/">cancel</a>
-      </fieldset>
-    </form>
+      </form>
+      <hr />
+    </section>
   </body>
 </html>
