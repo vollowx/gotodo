@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -98,7 +99,43 @@ func stringToDeadline(s string) (*time.Time, error) {
 	return &dl, nil
 }
 
-// Pure action functions - no validation, only data manipulation
+func sortTodos(todos []Todo) []Todo {
+	sorted := make([]Todo, len(todos))
+	copy(sorted, todos)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		a, b := sorted[i], sorted[j]
+		
+		// done: todo > done
+		if a.Done != b.Done {
+			return !a.Done && b.Done
+		}
+
+		if a.Done && b.Done {
+			// both done
+			// doneAt: earlier > later
+			return a.DoneAt.Before(b.DoneAt)
+		}
+
+		// both todo
+		// deadline: earlier > later
+		if !a.Deadline.Equal(b.Deadline) {
+			return a.Deadline.Before(b.Deadline)
+		}
+
+		// priority: higher > lower
+		if a.Priority != b.Priority {
+			return a.Priority > b.Priority
+		}
+
+		// addAt: earlier > later
+		return a.AddedAt.Before(b.AddedAt)
+	})
+
+	return sorted
+}
+
+
 func patchTodos(todos []Todo, match string, patch TodoPatch) int {
 	updated := 0
 	now := time.Now()
@@ -428,7 +465,7 @@ func main() {
 				Today:   time.Now().Format(dateYYYYMMDD),
 				ShowAll: showAll,
 				Flash:   flash,
-				Todos:   append([]Todo(nil), todos...),
+				Todos:   append([]Todo(nil), sortTodos(todos)...),
 			}
 			mu.Unlock()
 
@@ -578,7 +615,7 @@ func main() {
 		}
 
 	case args.List != nil:
-		for _, todo := range todos {
+		for _, todo := range sortTodos(todos) {
 			if args.List.All {
 				todo.PrintAll()
 			} else if todo.Done {
