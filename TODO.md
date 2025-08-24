@@ -9,3 +9,4 @@
 - [x] Add deadline filter
 - [ ] Add deadline filter that takes time as input
 - [ ] Add priority filter
+- [ ] Webpage should remember filters

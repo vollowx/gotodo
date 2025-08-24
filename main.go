@@ -462,6 +462,10 @@ func main() {
 			log.Fatalf("parse templates: %v", err)
 		}
 
+		// Assets
+
+		http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+
 		// Interactive pages
 
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

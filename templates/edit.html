@@ -4,67 +4,7 @@
     <meta charset="utf-8" />
     <title>Editing: {{htmlEsc .Match}}</title>
     <meta name="color-scheme" content="dark light" />
-    <style>
-      @view-transition {
-        navigation: auto;
-      }
-      ::view-transition-old(root),
-      ::view-transition-new(root) {
-        animation: fade 0.3s ease both;
-      }
-      @keyframes fade {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-      * {
-        font-family: monospace;
-      }
-      a,
-      button {
-        all: initial;
-        display: inline-flex;
-        height: min-content;
-        background-color: #333333;
-        font-family: monospace;
-      }
-      a:hover,
-      button:hover {
-        background-color: #454545;
-        cursor: pointer;
-      }
-      a::before,
-      button::before {
-        content: "[";
-      }
-      a::after,
-      button::after {
-        content: "]";
-      }
-      html {
-        min-height: 100%;
-        display: flex;
-      }
-      body {
-        margin: auto;
-        padding: 48px 32px;
-        max-width: 600px;
-        width: 100%;
-      }
-      hr {
-        border-color: #aaaaaa;
-      }
-      label {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 8px;
-      }
-    </style>
+    <link rel="stylesheet" href="/assets/style.css" />
   </head>
   <body>
     <section>
