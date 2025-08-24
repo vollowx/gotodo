@@ -99,7 +99,7 @@ func stringToDeadline(s string) (*time.Time, error) {
 	return &dl, nil
 }
 
-func (x Todo) IsToday() bool {
+func (x Todo) IsDue() bool {
 	now := time.Now().Truncate(24 * time.Hour)
 	deadline := x.Deadline.Truncate(24 * time.Hour)
 	return deadline.Equal(now) || deadline.Before(now)
@@ -391,11 +391,11 @@ func bashCssValue(s string) string {
 }
 
 type IndexData struct {
-	Today     string
-	ShowDone  bool
-	ShowToday bool
-	Flash     string
-	Todos     []Todo
+	Today    string
+	ShowDone bool
+	ShowDue  bool
+	Flash    string
+	Todos    []Todo
 }
 
 type EditData struct {
@@ -425,7 +425,7 @@ func main() {
 	type AddCmd struct{}
 	type ListCmd struct {
 		Done    bool `arg:"-d" help:"also show done todos"`
-		Today   bool `arg:"-t" help:"only show todos with deadline is (before) today"`
+		Due     bool `arg:"-t" help:"only show todos with deadline that is (before) today"`
 		Verbose bool `arg:"-v" help:"show more properties of todos"`
 	}
 	type DeleteCmd struct {
@@ -470,16 +470,16 @@ func main() {
 				return
 			}
 			showDone := isTrue(r.URL.Query().Get("done"))
-			showToday := isTrue(r.URL.Query().Get("today"))
+			showDue := isTrue(r.URL.Query().Get("due"))
 			flash := r.URL.Query().Get("flash")
 
 			mu.Lock()
 			data := IndexData{
-				Today:     time.Now().Format(dateYYYYMMDD),
-				ShowDone:  showDone,
-				ShowToday: showToday,
-				Flash:     flash,
-				Todos:     append([]Todo(nil), sortTodos(todos)...),
+				Today:    time.Now().Format(dateYYYYMMDD),
+				ShowDone: showDone,
+				ShowDue:  showDue,
+				Flash:    flash,
+				Todos:    append([]Todo(nil), sortTodos(todos)...),
 			}
 			mu.Unlock()
 
@@ -633,7 +633,7 @@ func main() {
 			if !args.List.Done && !todo.IsPending() {
 				continue
 			}
-			if args.List.Today && !todo.IsToday() {
+			if args.List.Due && !todo.IsDue() {
 				continue
 			}
 			if args.List.Verbose {

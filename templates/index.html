@@ -23,30 +23,46 @@
       * {
         font-family: monospace;
       }
+      :root {
+        --button-bg: #272727;
+        --button-fg: #ffffff;
+        --button-hover-bg: #454545;
+        --button-hover-fg: #ffffff;
+        --button-wrapper-fg: #aaaaaa;
+      }
+      .selected {
+        --button-bg: #ffffff;
+        --button-fg: #171717;
+        --button-hover-bg: #c1c1c1;
+        --button-hover-fg: #171717;
+        --button-wrapper-fg: #555555;
+      }
       a,
       button {
         all: initial;
         display: inline-flex;
         height: min-content;
-        background-color: #272727;
+        background-color: var(--button-bg);
+        color: var(--button-fg);
         font-family: monospace;
       }
       a:hover,
       a:focus,
       button:hover,
       button:focus {
-        background-color: #454545;
+        background-color: var(--button-hover-bg);
+        color: var(--button-hover-fg);
         cursor: pointer;
       }
       a::before,
       button::before {
         content: "[";
-        color: #aaaaaa;
+        color: var(--button-wrapper-fg);
       }
       a::after,
       button::after {
         content: "]";
-        color: #aaaaaa;
+        color:var(--button-wrapper-fg);
       }
       html {
         min-height: 100%;
@@ -96,19 +112,39 @@
   <body>
     {{if .Flash}}
     <p><strong>{{.Flash}}</strong></p>
-    {{end}} {{if .ShowDone}}
-    <a href="/" style="view-transition-name: toggle-all">hide done</a>
+    {{end}}
+    <!-- FIXME: URL handler will eventually become much more complex as more filters will be here -->
+    {{if .ShowDone}}
+    <a
+      href="/?{{if .ShowDue}}due=1{{end}}"
+      class="selected"
+      style="view-transition-name: toggle-done"
+      >+done</a
+    >
     {{else}}
-    <a href="/?done=1" style="view-transition-name: toggle-all">show done</a>
-    {{end}} {{if .ShowToday}}
-    <a href="/" style="view-transition-name: toggle-all">show all</a>
+    <a
+      href="/?done=1{{if .ShowDue}}&due=1{{end}}"
+      style="view-transition-name: toggle-done"
+      >+done</a
+    >
+    {{end}} {{if .ShowDue}}
+    <a
+      href="/?{{if .ShowDone}}done=1{{end}}"
+      class="selected"
+      style="view-transition-name: toggle-due"
+      >-upcoming</a
+    >
     {{else}}
-    <a href="/?today=1" style="view-transition-name: toggle-all">show today</a>
+    <a
+      href="/?due=1{{if .ShowDone}}&done=1{{end}}"
+      style="view-transition-name: toggle-due"
+      >-upcoming</a
+    >
     {{end}}
 
     <ul>
-      {{range .Todos}} {{if or $.ShowDone .IsPending}} {{if or (not
-      $.ShowToday) .IsToday}}
+      {{range .Todos}} {{if or $.ShowDone .IsPending}} {{if or (not $.ShowDue)
+      .IsDue}}
       <li
         style="view-transition-name: {{hashCssValue .Summary}}; --priority: {{.Priority}}"
       >
