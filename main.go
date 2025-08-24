@@ -14,8 +14,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"sort"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -51,7 +51,7 @@ func (x Todo) Print() {
 	fmt.Printf("[%d/%s] %s\n", x.Priority, x.Deadline.Format(dateYYYYMMDD), x.Summary)
 }
 
-func (x Todo) PrintAll() {
+func (x Todo) PrintVerbosely() {
 	var done string
 	if x.Done {
 		done = "done"
@@ -99,13 +99,23 @@ func stringToDeadline(s string) (*time.Time, error) {
 	return &dl, nil
 }
 
+// FIXME: Should follow user's timezone instead of UTC
+func (x Todo) IsToday() bool {
+	now := time.Now().Round(time.Hour * 24)
+	return (x.Deadline.Compare(now) <= 0)
+}
+
+func (x Todo) IsPending() bool {
+	return !x.Done
+}
+
 func sortTodos(todos []Todo) []Todo {
 	sorted := make([]Todo, len(todos))
 	copy(sorted, todos)
 
 	sort.Slice(sorted, func(i, j int) bool {
 		a, b := sorted[i], sorted[j]
-		
+
 		// done: todo > done
 		if a.Done != b.Done {
 			return !a.Done && b.Done
@@ -134,7 +144,6 @@ func sortTodos(todos []Todo) []Todo {
 
 	return sorted
 }
-
 
 func patchTodos(todos []Todo, match string, patch TodoPatch) int {
 	updated := 0
@@ -382,10 +391,11 @@ func bashCssValue(s string) string {
 }
 
 type IndexData struct {
-	Today   string
-	ShowAll bool
-	Flash   string
-	Todos   []Todo
+	Today     string
+	ShowDone  bool
+	ShowToday bool
+	Flash     string
+	Todos     []Todo
 }
 
 type EditData struct {
@@ -395,10 +405,10 @@ type EditData struct {
 
 func loadTemplates() (*template.Template, error) {
 	funcs := template.FuncMap{
-		"fmtDate":     func(t time.Time) string { return t.Format(dateYYYYMMDD) },
-		"pathEsc":     url.PathEscape,
-		"qEsc":        url.QueryEscape,
-		"htmlEsc":     html.EscapeString,
+		"fmtDate":      func(t time.Time) string { return t.Format(dateYYYYMMDD) },
+		"pathEsc":      url.PathEscape,
+		"qEsc":         url.QueryEscape,
+		"htmlEsc":      html.EscapeString,
 		"hashCssValue": bashCssValue,
 	}
 	t := template.New("base").Funcs(funcs)
@@ -414,7 +424,9 @@ func main() {
 	type ServeCmd struct{}
 	type AddCmd struct{}
 	type ListCmd struct {
-		All bool `arg:"-a" help:"list done todos"`
+		Done    bool `arg:"-d" help:"also show done todos"`
+		Today   bool `arg:"-t" help:"only show todos with deadline is (before) today"`
+		Verbose bool `arg:"-v" help:"show more properties of todos"`
 	}
 	type DeleteCmd struct {
 		Summary string `arg:"positional,required" help:"summary of the todo(s) to delete"`
@@ -457,15 +469,17 @@ func main() {
 				http.NotFound(w, r)
 				return
 			}
-			showAll := isTrue(r.URL.Query().Get("all"))
+			showDone := isTrue(r.URL.Query().Get("done"))
+			showToday := isTrue(r.URL.Query().Get("today"))
 			flash := r.URL.Query().Get("flash")
 
 			mu.Lock()
 			data := IndexData{
-				Today:   time.Now().Format(dateYYYYMMDD),
-				ShowAll: showAll,
-				Flash:   flash,
-				Todos:   append([]Todo(nil), sortTodos(todos)...),
+				Today:     time.Now().Format(dateYYYYMMDD),
+				ShowDone:  showDone,
+				ShowToday: showToday,
+				Flash:     flash,
+				Todos:     append([]Todo(nil), sortTodos(todos)...),
 			}
 			mu.Unlock()
 
@@ -616,10 +630,14 @@ func main() {
 
 	case args.List != nil:
 		for _, todo := range sortTodos(todos) {
-			if args.List.All {
-				todo.PrintAll()
-			} else if todo.Done {
+			if !args.List.Done && !todo.IsPending() {
 				continue
+			}
+			if args.List.Today && !todo.IsToday() {
+				continue
+			}
+			if args.List.Verbose {
+				todo.PrintVerbosely()
 			} else {
 				todo.Print()
 			}

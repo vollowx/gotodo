@@ -96,14 +96,19 @@
   <body>
     {{if .Flash}}
     <p><strong>{{.Flash}}</strong></p>
-    {{end}} {{if .ShowAll}}
-    <a href="/" style="view-transition-name: toggle-all">show pending</a>
+    {{end}} {{if .ShowDone}}
+    <a href="/" style="view-transition-name: toggle-all">hide done</a>
     {{else}}
-    <a href="/?all=1" style="view-transition-name: toggle-all">show all</a>
+    <a href="/?done=1" style="view-transition-name: toggle-all">show done</a>
+    {{end}} {{if .ShowToday}}
+    <a href="/" style="view-transition-name: toggle-all">show all</a>
+    {{else}}
+    <a href="/?today=1" style="view-transition-name: toggle-all">show today</a>
     {{end}}
 
     <ul>
-      {{range .Todos}} {{if or $.ShowAll (not .Done)}}
+      {{range .Todos}} {{if or $.ShowDone .IsPending}} {{if or (not
+      $.ShowToday) .IsToday}}
       <li
         style="view-transition-name: {{hashCssValue .Summary}}; --priority: {{.Priority}}"
       >
@@ -120,7 +125,7 @@
           <button type="submit" aria-label="delete">x</button>
         </form>
       </li>
-      {{end}} {{end}}
+      {{end}} {{end}} {{end}}
     </ul>
 
     <section style="view-transition-name: form-add">
