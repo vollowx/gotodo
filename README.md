@@ -8,6 +8,7 @@ Options:
   --help, -h             display this help and exit
 
 Commands:
+  serve                  start local web server
   add                    add a new todo
   delete                 delete todo(s) by summary
   set                    update properties of todo(s) by summary
