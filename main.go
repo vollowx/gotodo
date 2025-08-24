@@ -71,7 +71,7 @@ func isValidPriority(p int8) bool {
 }
 
 func isValidDeadline(t time.Time) bool {
-	now := time.Now().Round(time.Hour * 24)
+	now := time.Now().Truncate(24 * time.Hour)
 	return t.Compare(now) >= 0
 }
 
@@ -99,10 +99,10 @@ func stringToDeadline(s string) (*time.Time, error) {
 	return &dl, nil
 }
 
-// FIXME: Should follow user's timezone instead of UTC
 func (x Todo) IsToday() bool {
-	now := time.Now().Round(time.Hour * 24)
-	return (x.Deadline.Compare(now) <= 0)
+	now := time.Now().Truncate(24 * time.Hour)
+	deadline := x.Deadline.Truncate(24 * time.Hour)
+	return deadline.Equal(now) || deadline.Before(now)
 }
 
 func (x Todo) IsPending() bool {
@@ -248,7 +248,7 @@ func addTodoOperation(todos *[]Todo, mu *sync.Mutex, summary, details, deadlineS
 	if err != nil {
 		return "", err
 	}
-	dl := time.Now().Round(time.Hour * 24)
+	dl := time.Now().Truncate(24 * time.Hour)
 	if deadline != nil {
 		if !isValidDeadline(*deadline) {
 			return "", errors.New("deadline is before today")
